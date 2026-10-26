@@ -17,7 +17,7 @@ registry. Install with `~/firstmate/bin/fm-vendor-install.sh --vendor <this dir>
 | `archive/` | the previous v1.84.0 NDA-safe binary and its patch, with `SHA256SUMS`, for rollback | |
 | `nm-nda-safe.trace` | strace of the rebuilt binary: the only connect() is its own UNIX socket | |
 | `README-no-mistakes.md` | commit, Go version, exact build command, verification, how to rebuild and roll back | |
-| `quota-axi-shim/quota-axi` | PATH shim installed at `~/.local/bin/quota-axi`: pins reads to `--provider claude,codex` and refuses `update` while the airgap switch is on; audit summary in its README | written here, 2026-10-25 |
+| `quota-axi-shim/README.md` | the quota-axi audit summary. The shim itself now lives in the firstmate fork as `bin/fm-quota-axi-shim.sh` and `bin/fm-vendor-install.sh` installs it; the copy here is kept for reference only | 2026-10-25 |
 | `tools/` | ShellCheck 0.11.0 (firstmate's pinned lint version), hash in `tools/SHA256SUMS` | github.com/koalaman/shellcheck releases |
 | `compare/run-compare.sh` (local only, not in the repo) | the secure-versus-control comparison scenario (phases A-E; E = the `/bearings lavish` board via `compare/bench/fm-bench-lavish.sh`) | |
 | `compare/bench/` (local only) | task benchmarks (worker path, captain-driven) and the lavish board benchmark | |
