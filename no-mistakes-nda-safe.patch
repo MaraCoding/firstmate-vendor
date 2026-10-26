@@ -1,0 +1,238 @@
+diff --git a/internal/skill/skill.go b/internal/skill/skill.go
+index 5f369d36..bafec868 100644
+--- a/internal/skill/skill.go
++++ b/internal/skill/skill.go
+@@ -129,7 +129,7 @@ change is meant to achieve. You know it from the conversation, so pass it
+ directly - no-mistakes uses the supplied intent instead of inferring it from local
+ agent transcripts. Empty or whitespace-only input is rejected, never inferred.
+ For input handling, whitespace preservation, and reattachment semantics, see the
+-[CLI intent input reference](https://kunchenguid.github.io/no-mistakes/reference/cli/#intent-input).
++CLI intent input reference (docs/reference/cli.md, intent input section).
+ 
+ Err on the side of completeness, not brevity. The review step uses explicit intent
+ to tell a deliberate decision apart from a mistake, so a thin one-line summary
+@@ -404,7 +404,7 @@ A ` + "`protected-path-refusal`" + ` gate still requires an explicit operator re
+ under ` + "`--yes`" + `. Relay its path and rule; do not automatically fix, approve,
+ or skip it. Approval is rejected. Have the operator inspect and resolve the
+ reported edit, then send ` + "`--action fix`" + ` to retry the unfinished step.
+-The [protected-path reference](https://kunchenguid.github.io/no-mistakes/reference/repo-config/#protected_paths)
++The protected-path reference (docs/reference/repo-config.md, protected_paths section)
+ owns the staging guard's scope and limitations.
+ 
+ A gate holding open ` + "`question-<id>`" + ` findings is not eligible either: a question
+diff --git a/internal/telemetry/config_test.go b/internal/telemetry/config_test.go
+index 677b5d41..49ff5c1e 100644
+--- a/internal/telemetry/config_test.go
++++ b/internal/telemetry/config_test.go
+@@ -139,7 +139,9 @@ func TestDefaultUsesEmbeddedTelemetryHostAndWebsiteID(t *testing.T) {
+ 	}
+ }
+ 
+-func TestDefaultUsesSelfHostedHostWhenHostConfigMissing(t *testing.T) {
++// NDA-safe build: with no host configured there is no built-in fallback host,
++// so Default() must return the no-op sink even when a website ID is embedded.
++func TestDefaultIsNoopWhenHostConfigMissing(t *testing.T) {
+ 	prevSink := defaultSink
+ 	defaultSink = nil
+ 	defer func() { defaultSink = prevSink }()
+@@ -160,13 +162,12 @@ func TestDefaultUsesSelfHostedHostWhenHostConfigMissing(t *testing.T) {
+ 	t.Setenv(umamiHostEnv, "")
+ 	t.Setenv(umamiWebsiteIDEnv, "")
+ 
+-	sink := Default()
+-	client, ok := sink.(*Client)
+-	if !ok {
+-		t.Fatalf("Default() type = %T, want *Client", sink)
++	if defaultHost != "" {
++		t.Fatalf("defaultHost = %q, want empty", defaultHost)
+ 	}
+-	if client.endpoint != defaultHost+"/api/send" {
+-		t.Fatalf("endpoint = %q, want %q", client.endpoint, defaultHost+"/api/send")
++	sink := Default()
++	if _, ok := sink.(noopSink); !ok {
++		t.Fatalf("Default() type = %T, want noopSink", sink)
+ 	}
+ }
+ 
+diff --git a/internal/telemetry/telemetry.go b/internal/telemetry/telemetry.go
+index fb04cc3c..04209c25 100644
+--- a/internal/telemetry/telemetry.go
++++ b/internal/telemetry/telemetry.go
+@@ -24,7 +24,9 @@ const (
+ 	defaultHostname = "cli"
+ 	defaultTitle    = "no-mistakes CLI"
+ 	defaultPath     = "/api/send"
+-	defaultHost     = "https://a.kunchenguid.com"
++	// NDA-safe build: no built-in telemetry host. With no host configured,
++	// NewClient fails and Default() falls back to the no-op sink.
++	defaultHost = ""
+ 
+ 	umamiHostEnv      = "NO_MISTAKES_UMAMI_HOST"
+ 	umamiWebsiteIDEnv = "NO_MISTAKES_UMAMI_WEBSITE_ID"
+diff --git a/internal/update/channels.go b/internal/update/channels.go
+index e0367630..4d75f26f 100644
+--- a/internal/update/channels.go
++++ b/internal/update/channels.go
+@@ -15,8 +15,10 @@ const (
+ 	channelsSchemaV1   = 1
+ )
+ 
++// NDA-safe build: no release manifest URL, so the updater never contacts an
++// author-controlled host. Self-update and update checks are disabled.
+ func defaultManifestURL(repo string) string {
+-	return "https://github.com/" + repo + "/releases/download/" + channelsReleaseTag + "/" + channelsAssetName
++	return ""
+ }
+ 
+ // channelsManifest is the release-asset document the updater reads over the
+@@ -129,6 +131,9 @@ func usableChannelRelease(r releaseResponse, includePrereleases bool) bool {
+ }
+ 
+ func (u *updater) fetchReleaseFromManifest(ctx context.Context) (*releaseResponse, error) {
++	if u.manifestURL == "" {
++		return nil, errUpdatesDisabled
++	}
+ 	if err := ensureHTTPS(u.manifestURL); err != nil {
+ 		return nil, err
+ 	}
+diff --git a/internal/update/channels_test.go b/internal/update/channels_test.go
+index 02a26011..c5cb3709 100644
+--- a/internal/update/channels_test.go
++++ b/internal/update/channels_test.go
+@@ -10,14 +10,15 @@ import (
+ 	"testing"
+ )
+ 
+-func TestDefaultManifestURLUsesReleaseAssetCDN(t *testing.T) {
+-	got := defaultManifestURL("kunchenguid/no-mistakes")
+-	if strings.Contains(got, "api.github.com") {
+-		t.Fatalf("manifest URL %q must not use the GitHub REST API host", got)
+-	}
+-	want := "https://github.com/kunchenguid/no-mistakes/releases/download/channels/channels.json"
+-	if got != want {
+-		t.Fatalf("defaultManifestURL = %q, want %q", got, want)
++// NDA-safe build: there is no default manifest URL, and fetching with an
++// empty one fails without making any request.
++func TestDefaultManifestURLIsEmpty(t *testing.T) {
++	if got := defaultManifestURL("kunchenguid/no-mistakes"); got != "" {
++		t.Fatalf("defaultManifestURL = %q, want empty", got)
++	}
++	u := &updater{}
++	if _, err := u.fetchReleaseFromManifest(context.Background()); err != errUpdatesDisabled {
++		t.Fatalf("fetchReleaseFromManifest err = %v, want errUpdatesDisabled", err)
+ 	}
+ }
+ 
+diff --git a/internal/update/update.go b/internal/update/update.go
+index bd02dbd1..396644f3 100644
+--- a/internal/update/update.go
++++ b/internal/update/update.go
+@@ -29,6 +29,17 @@ const (
+ )
+ 
+ var allowInsecureDownloads bool
++
++// NDA-safe build: the background update check is off by default, as if
++// NO_MISTAKES_NO_UPDATE_CHECK=1 were always set. Tests may flip this.
++var updateCheckDisabledByDefault = true
++
++var errUpdatesDisabled = errors.New("self-update is disabled in this build")
++
++func updateCheckDisabled() bool {
++	return updateCheckDisabledByDefault || os.Getenv(noUpdateCheckEnv) == "1"
++}
++
+ var currentGOOS = runtime.GOOS
+ var daemonIsRunning = daemon.IsRunning
+ var daemonExecutablePath = runningDaemonExecutablePath
+@@ -162,7 +173,7 @@ func (u *updater) refreshCache(ctx context.Context) error {
+ }
+ 
+ func (u *updater) maybeNotifyAndCheck(args []string) {
+-	if u.disableBackground || u.nixStoreInstall || isDevVersion(u.currentVersion) || os.Getenv(noUpdateCheckEnv) == "1" {
++	if u.disableBackground || u.nixStoreInstall || isDevVersion(u.currentVersion) || updateCheckDisabled() {
+ 		return
+ 	}
+ 	// Informational commands must be side-effect-free probes: `update` and the
+@@ -185,7 +196,7 @@ func (u *updater) maybeNotifyAndCheck(args []string) {
+ }
+ 
+ func (u *updater) cachedLatestVersion() string {
+-	if u == nil || u.disableBackground || u.nixStoreInstall || isDevVersion(u.currentVersion) || os.Getenv(noUpdateCheckEnv) == "1" {
++	if u == nil || u.disableBackground || u.nixStoreInstall || isDevVersion(u.currentVersion) || updateCheckDisabled() {
+ 		return ""
+ 	}
+ 	cache := readCache(u.cachePath)
+@@ -208,6 +219,10 @@ func (u *updater) run(ctx context.Context) error {
+ 		fmt.Fprintf(u.stdoutWriter(), "self-update unavailable for Nix installs; upgrade through Nix (for example `nix profile upgrade %s`), then run `%s daemon restart`\n", u.appName, u.appName)
+ 		return nil
+ 	}
++	if u.manifestURL == "" {
++		fmt.Fprintf(u.stdoutWriter(), "%s: %s\n", u.appName, errUpdatesDisabled)
++		return nil
++	}
+ 	plan, err := u.checkLatest(ctx)
+ 	if err != nil {
+ 		return err
+diff --git a/internal/update/update_test.go b/internal/update/update_test.go
+index b050894b..4b5d8650 100644
+--- a/internal/update/update_test.go
++++ b/internal/update/update_test.go
+@@ -869,6 +869,7 @@ func TestUpdaterRunSkipsDaemonExecutableCheckWhenAlreadyUpToDate(t *testing.T) {
+ }
+ 
+ func TestUpdaterMaybeNotifyAndCheck(t *testing.T) {
++	enableUpdateCheckForTest(t)
+ 	cachePath := filepath.Join(t.TempDir(), "update-check.json")
+ 	if err := writeCache(cachePath, &checkCache{
+ 		CheckedAt:     time.Date(2026, 4, 8, 12, 0, 0, 0, time.UTC),
+@@ -976,6 +977,7 @@ func TestUpdaterCheckLatestBetaUsesManifest(t *testing.T) {
+ }
+ 
+ func TestUpdaterCachedLatestVersion(t *testing.T) {
++	enableUpdateCheckForTest(t)
+ 	cachePath := filepath.Join(t.TempDir(), "update-check.json")
+ 	if err := writeCache(cachePath, &checkCache{
+ 		CheckedAt:     time.Date(2026, 4, 8, 12, 0, 0, 0, time.UTC),
+@@ -1116,3 +1118,19 @@ func TestUpdaterNixStoreInstallNeverAdvertisesUpdate(t *testing.T) {
+ 		t.Fatalf("cachedLatestVersion() = %q, want empty for a Nix install", got)
+ 	}
+ }
++
++// enableUpdateCheckForTest re-enables the update-check logic that the NDA-safe
++// build turns off by default, so the notification paths stay covered.
++func enableUpdateCheckForTest(t *testing.T) {
++	t.Helper()
++	prev := updateCheckDisabledByDefault
++	updateCheckDisabledByDefault = false
++	t.Cleanup(func() { updateCheckDisabledByDefault = prev })
++}
++
++func TestUpdateCheckDisabledByDefault(t *testing.T) {
++	t.Setenv(noUpdateCheckEnv, "")
++	if !updateCheckDisabled() {
++		t.Fatal("updateCheckDisabled() = false with env unset, want true")
++	}
++}
+diff --git a/skills/no-mistakes/SKILL.md b/skills/no-mistakes/SKILL.md
+index 7f5a7ef9..99ce893a 100644
+--- a/skills/no-mistakes/SKILL.md
++++ b/skills/no-mistakes/SKILL.md
+@@ -138,7 +138,7 @@ change is meant to achieve. You know it from the conversation, so pass it
+ directly - no-mistakes uses the supplied intent instead of inferring it from local
+ agent transcripts. Empty or whitespace-only input is rejected, never inferred.
+ For input handling, whitespace preservation, and reattachment semantics, see the
+-[CLI intent input reference](https://kunchenguid.github.io/no-mistakes/reference/cli/#intent-input).
++CLI intent input reference (docs/reference/cli.md, intent input section).
+ 
+ Err on the side of completeness, not brevity. The review step uses explicit intent
+ to tell a deliberate decision apart from a mistake, so a thin one-line summary
+@@ -413,7 +413,7 @@ A `protected-path-refusal` gate still requires an explicit operator response
+ under `--yes`. Relay its path and rule; do not automatically fix, approve,
+ or skip it. Approval is rejected. Have the operator inspect and resolve the
+ reported edit, then send `--action fix` to retry the unfinished step.
+-The [protected-path reference](https://kunchenguid.github.io/no-mistakes/reference/repo-config/#protected_paths)
++The protected-path reference (docs/reference/repo-config.md, protected_paths section)
+ owns the staging guard's scope and limitations.
+ 
+ A gate holding open `question-<id>` findings is not eligible either: a question

@@ -1,0 +1,30 @@
+854870 +++ exited with 0 +++
+854871 +++ exited with 0 +++
+854866 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=854871, si_uid=1001, si_status=0, si_utime=0, si_stime=0} ---
+854866 connect(7, {sa_family=AF_UNIX, sun_path="/home/molt_admin/.no-mistakes/socket"}, 39) = 0
+854866 --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=854866, si_uid=1001} ---
+854868 +++ exited with 0 +++
+854869 +++ exited with 0 +++
+854867 +++ exited with 0 +++
+854866 +++ exited with 0 +++
+854879 --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=854879, si_uid=1001} ---
+854883 +++ exited with 0 +++
+854882 +++ exited with 0 +++
+854881 +++ exited with 0 +++
+854880 +++ exited with 0 +++
+854879 +++ exited with 0 +++
+854891 --- SIGURG {si_signo=SIGURG, si_code=SI_TKILL, si_pid=854891, si_uid=1001} ---
+854895 +++ exited with 0 +++
+854896 +++ exited with 0 +++
+854893 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=854896, si_uid=1001, si_status=0, si_utime=0, si_stime=0} ---
+854897 +++ exited with 0 +++
+854893 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=854897, si_uid=1001, si_status=0, si_utime=0, si_stime=0} ---
+854894 +++ exited with 0 +++
+854892 +++ exited with 0 +++
+854893 +++ exited with 0 +++
+854891 +++ exited with 0 +++
+854857 +++ exited with 0 +++
+854856 +++ exited with 0 +++
+854858 +++ exited with 0 +++
+854855 +++ exited with 0 +++
+854854 +++ exited with 0 +++
